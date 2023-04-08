@@ -1,1 +1,1 @@
-This is the readme file.
+This is a project using the the data from https://archive.ics.uci.edu/ml/datasets/default+of+credit+card+clients. Several machine learning models are implemented in this project, and is a joint work with Tomy Fan and Lucy Lu.
