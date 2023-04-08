@@ -1,1 +1,1 @@
-This is a project done in STAT448, a course taken during my master's degree in Statistics. The project focused on analyzing the data from the art theater that was once in Champaign, and an an additional API https://www.omdbapi.com/ was also used for data analysis.
+This is a project done in STAT448, a course taken during my master's degree in Statistics. The project focused on analyzing the data from the art theater that was once in Champaign, IL, and an additional API https://www.omdbapi.com/ was also used for data analysis.
