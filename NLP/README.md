@@ -1,0 +1,2 @@
+This is a natural language processing (NLP) project that focuses on analyzing the commments from The New York Times. Thanks to Prof. John Gallagher, a professor from the English department of UIUC for giving us the opportunity to work on this dataset. The comments were scraped by a previous student Prof. Gallagher worked with, and we implemented topic modeling and sentiment analysis on the comments. This is a joint work with my teammates, Kumar Shubham, Tomy Fan and Ibtissam Dalvi.
+
