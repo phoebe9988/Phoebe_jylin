@@ -1,0 +1,1107 @@
+---
+title: "STAT448_AP01"
+author: 'Net ID: juiyul2'
+date: "2023-02-08"
+output: html_document
+---
+
+```{r import}
+library(tidyverse)                
+library("ggplot2")
+library(tidyr)
+library(graphics)
+```
+
+```{r read data}
+library(readr)
+ticket_sales <- read_csv("data_the_art_theater-main/ticket_sales_by_showing.csv", 
+                          col_types = cols(EventDate = col_datetime(format = "%b %d, %Y %I:%M:%S %p"), 
+                          Quantity = col_integer(), Price = col_character()))
+gross_revenue_by_event <- read_csv("data_the_art_theater-main/gross_revenue_by_event.csv", col_types = cols(`Gross Revenue`=col_number()))
+
+```
+
+```{r gross revenue}
+revenue_by_event<-gross_revenue_by_event%>%
+  arrange(desc(`Gross Revenue`))
+
+nrow(revenue_by_event)
+
+#plotting all events by descending order of gross revenue
+plot_all <- ggplot(revenue_by_event, aes(x = reorder(Event, -revenue_by_event$`Gross Revenue`), y = revenue_by_event$`Gross Revenue`))
+plot_all <-plot_all+ geom_bar(stat="identity", color='darkgreen',fill='orange')
+plot_all <-plot_all+theme(axis.text.x=element_text(angle=45, hjust=1))
+plot_all <-plot_all+labs(title = "Events by Gross Revenue", x = "Event", y = "Gross Revenue")
+plot_all
+```
+```{r filtering out some events}
+filtered_events<-revenue_by_event %>% filter(`Gross Revenue` >= 1000)
+plot_filtered <- ggplot(filtered_events, aes(x = reorder(Event, -filtered_events$`Gross Revenue`), y = filtered_events$`Gross Revenue`))
+plot_filtered <-plot_filtered+ geom_bar(stat="identity", color='darkgreen',fill='darkgreen')
+plot_filtered <-plot_filtered+theme(axis.text.x=element_text(angle=45, hjust=1))
+plot_filtered <-plot_filtered+labs(title = "Events by Gross Revenue", x = "Event", y = "Gross Revenue")
+plot_filtered
+```
+
+
+```{r unique filtered events}
+movie_filtered <- as.data.frame(filtered_events$Event)
+colnames(movie_filtered)[1] ="eventname"
+movie_filtered[ , 'genre'] <- NA
+
+```
+
+```{r api}
+#5906a73a
+#c648d930
+library(httr)
+library(jsonlite)
+# Read API
+base_url<-"http://www.omdbapi.com/?i=tt3896198&"
+key_url<-"apikey=5906a73a"
+full_url<-base::paste0(base_url, key_url)
+api_call <- httr::GET(full_url)
+#api_call$status_code
+data_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+```
+
+```{r api genre fetch}
+#trial
+base_url<-"http://www.omdbapi.com/?t=A+Fantastic+Woman&"
+key_url<-"apikey=5906a73a"
+full_url<-base::paste0(base_url, key_url)
+api_call <- httr::GET(full_url)
+fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+fetch_api$Genre
+```
+
+```{r fetch genre of all movies}
+for (i in 1:nrow(movie_filtered)){
+  a<-gsub(" ", "+", movie_filtered[i,1], fixed=TRUE)
+  base_url<-"http://www.omdbapi.com/?t="
+  movie_name<- a
+  key_url<-"&apikey=5906a73a"
+  full_url<-base::paste0(base_url, movie_name, key_url)
+  api_call <- httr::GET(full_url)
+  fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+  if (fetch_api$Response=="False"){
+    fetch_api$Genre="NA"
+  }
+  movie_filtered$genre[i]<-fetch_api$Genre #merge into movie_filtered
+}
+```
+
+```{r finding the genre of specific movies/events}
+#the genre of some movies cannot be found (by their full names) in the search of the api
+print(which(movie_filtered$genre=="NA"))
+# 13  72  73  77  86  90  92 123 148 156 166
+
+#13
+print(movie_filtered$eventname[13])
+base_url<-"http://www.omdbapi.com/?t=Victoria+%26+Abdul"
+key_url<-"&apikey=5906a73a"
+full_url<-base::paste0(base_url, key_url)
+api_call <- httr::GET(full_url)
+fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+movie_filtered$genre[13]<- fetch_api$Genre
+
+#72
+print(movie_filtered$eventname[72])
+base_url<-"http://www.omdbapi.com/?t=Suspiria&y=2018"
+key_url<-"&apikey=5906a73a"
+full_url<-base::paste0(base_url, key_url)
+api_call <- httr::GET(full_url)
+fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+movie_filtered$genre[72]<- fetch_api$Genre
+
+#73
+print(movie_filtered$eventname[73])
+#Mountainfilm 2019
+movie_filtered$genre[73]<- "moviefestival"
+
+#77
+print(movie_filtered$eventname[77])
+#CatVideoFest 2018
+movie_filtered$genre[77]<- "moviefestival"
+
+#86
+print(movie_filtered$eventname[86])
+#The Oscar Nominated Short Films 2018: Animation
+#as 33
+movie_filtered$genre[86]<- "Animation"
+
+#90
+print(movie_filtered$eventname[90])
+#he Oscar Nominated Short Films 2019: Live Action
+movie_filtered$genre[90]<- "Drama"
+
+#92
+print(movie_filtered$eventname[92])
+#Found Footage Festival: Cherished Gems
+movie_filtered$genre[92]<- "moviefestival"
+
+#123
+print(movie_filtered$eventname[123])
+#All-Nite Horror Marathon V
+movie_filtered$genre[123]<- "Horror"
+
+#148
+print(movie_filtered$eventname[148])
+base_url<-"http://www.omdbapi.com/?t=Suspiria&y=1977"
+key_url<-"&apikey=5906a73a"
+full_url<-base::paste0(base_url, key_url)
+api_call <- httr::GET(full_url)
+fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+movie_filtered$genre[148]<- fetch_api$Genre
+
+#149
+#The Oscar Nominated Short Films 2019: Documentary
+#as 165
+movie_filtered$genre[149]<- "Documentary"
+
+#156
+print(movie_filtered$eventname[156])
+#Found Footage Festival, Vol. 8
+movie_filtered$genre[156]<- "moviefestival"
+
+#166
+print(movie_filtered$eventname[166])
+base_url<-"http://www.omdbapi.com/?t=Leaning+Into+the+Wind"
+key_url<-"&apikey=5906a73a"
+full_url<-base::paste0(base_url, key_url)
+api_call <- httr::GET(full_url)
+fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+movie_filtered$genre[166]<- fetch_api$Genre
+
+```
+
+```{r finding frequency of genres}
+all_genre<-paste(movie_filtered["genre"], collapse = ",")
+# Create frequency table
+freq <- sort(table(unlist(strsplit(gsub('[[:punct:] ]+',' ',all_genre)," "))), decreasing = TRUE)
+```
+
+```{r assigning the only genre to each movie}
+movie_filtered[ , 'single_genre'] <- NA
+#genre_list: order from the frequency table generated above
+genre_list<-c("Drama", "Comedy", "Biography", "Documentary", "Romance", "Adventure", "History", "Crime", "Animation", "Horror", "Mystery", "Fantasy", "Thriller", "Sci-Fi", "Action", "Music", "War", "Family", "moviefestival", "Sport", "Musical", "Short")
+while (sum(is.na(movie_filtered$single_genre))!=0) {
+  for (i in 1:length(genre_list)){
+    for (j in 1:nrow(movie_filtered)){
+      if (str_detect(movie_filtered$genre[j], genre_list[i])==TRUE && is.na(movie_filtered$single_genre[j])==TRUE){
+        movie_filtered$single_genre[j]<- genre_list[i]
+      }
+    }
+  }
+}
+
+#see what are the unique values left
+unique(movie_filtered$single_genre)
+#"Biography"     "Comedy"        "Drama"         "Documentary"   "Animation"     "Adventure"     "moviefestival" "Horror"        "Crime"         "Music"   
+```
+
+```{r TicketType}
+unique(ticket_sales$TicketType)
+```
+
+```{r TicketType summary}
+# sum up "Adult, Senior Citizen, Student, Member, Child" Tickets for each movie/event
+#Recalling that these 5 groups are the top five groups(in order) of audiences
+
+type<-c("Adult", "Senior Citizen", "Student", "Member", "Child")
+movie_filtered[ , 'Adult_total_tickets'] <- NA
+movie_filtered[ , 'SC_total_tickets'] <- NA
+movie_filtered[ , 'Student_total_tickets'] <- NA
+movie_filtered[ , 'Member_total_tickets'] <- NA
+movie_filtered[ , 'Child_total_tickets'] <- NA
+for (k in 1:length(type)){
+  for (i in 1:nrow(movie_filtered)){
+  a=0
+  for (j in 1:length(which(ticket_sales$EventName==movie_filtered$eventname[i]))){
+    if (ticket_sales$TicketType[which(ticket_sales$EventName==movie_filtered$eventname[i])[j]]==type[k]){
+      a=a+ticket_sales$Quantity[which(ticket_sales$EventName==movie_filtered$eventname[i])[j]]
+    }
+  }
+  movie_filtered[i,3+k]=a
+  }
+}
+
+```
+
+```{r Summary for each genre}
+genre_summary <- as.data.frame(unique(movie_filtered$single_genre))
+colnames(genre_summary)[1] ="Genre"
+genre_summary[ , 'Adult_tickets'] <- NA
+genre_summary[ , 'SC_tickets'] <- NA
+genre_summary[ , 'Student_tickets'] <- NA
+genre_summary[ , 'Member_tickets'] <- NA
+genre_summary[ , 'Child_tickets'] <- NA
+for (i in 1:nrow(genre_summary)) {
+  a=0
+  b=0
+  c=0
+  d=0
+  e=0
+  for (j in 1:length(which(movie_filtered$single_genre==genre_summary$Genre[i]))){
+    a=a+movie_filtered$Adult_total_tickets[which(movie_filtered$single_genre==genre_summary$Genre[i])[j]]
+    b=b+movie_filtered$SC_total_tickets[which(movie_filtered$single_genre==genre_summary$Genre[i])[j]]
+    c=c+movie_filtered$Student_total_tickets[which(movie_filtered$single_genre==genre_summary$Genre[i])[j]]
+    d=d+movie_filtered$Member_total_tickets[which(movie_filtered$single_genre==genre_summary$Genre[i])[j]]
+    e=e+movie_filtered$Child_total_tickets[which(movie_filtered$single_genre==genre_summary$Genre[i])[j]]
+  }
+  genre_summary$Adult_tickets[i]=a
+  genre_summary$SC_tickets[i]=b
+  genre_summary$Student_tickets[i]=c
+  genre_summary$Member_tickets[i]=d
+  genre_summary$Child_tickets[i]=e
+}
+#sum of tickets
+genre_summary[ , 'Total_tickets'] <- NA
+for (i in 1:nrow(genre_summary)){
+  sum=0
+  for (j in 2:6){
+    sum=sum+genre_summary[i,j]
+  }
+  genre_summary[i,7]=sum
+}
+#order table by total_ticket
+genre_summary <- genre_summary[order(genre_summary$Total_tickets, decreasing = TRUE),]
+```
+
+```{r calculate number of movies in each genre}
+#(out of the top 166 movies- by gross revenue)
+genre_summary[ , 'Total_movies'] <- NA
+for (i in 1:nrow(genre_summary)){
+  genre_summary$Total_movies[i]=length(which(movie_filtered$single_genre==genre_summary$Genre[i]))
+}
+
+```
+
+```{r data visualization}
+#data visualization of genre_summary
+genre_summary1<-genre_summary
+genre_summary1<-genre_summary1 %>% pivot_longer(cols=c('Adult_tickets', 'SC_tickets', 'Student_tickets','Member_tickets', 'Child_tickets'),
+                                                names_to='ppltype',
+                                                values_to='tickets') 
+
+ggp <- ggplot(genre_summary1, aes(x = Genre, y = tickets, fill = ppltype, label = tickets)) +# Create stacked bar chart
+  scale_x_discrete(limits = rev(c(genre_summary["Genre"])$Genre)) +
+  geom_bar(stat = "identity")+
+  coord_flip()
+ggp 
+```
+
+```{r pie with colors}
+for (i in 1:9){
+  percentage<- round(100*filter(genre_summary1,genre_summary1["Genre"]==genre_summary[i,1])["tickets"]/sum(filter(genre_summary1,genre_summary1["Genre"]==genre_summary[i,1])["tickets"]), 1)
+pie(c(filter(genre_summary1,genre_summary1["Genre"]==genre_summary[i,1])["tickets"])$tickets, 
+    labels = paste0(c("Adult ", "Senior Citizen ", "Student ", "Member ", "Child "),c(percentage)$tickets,"%"), 
+    radius = 1, cex = 0.7, 
+    main=genre_summary[i,1],
+    #col = c("gray", "gray", "darkgreen", "gray", "darkolivegreen4"))
+    col = rainbow(length(c(filter(genre_summary1,genre_summary1["Genre"]==genre_summary[i,1])["tickets"])$tickets)))                 #c(filter(genre_summary1,genre_summary1["Genre"]=="Drama")["ppltype"])$ppltype)
+#pie(x, labels = piepercent, main = "City pie chart",col = rainbow(length(x)))
+#legend("topright", filter(genre_summary1,genre_summary1["Genre"]==genre_summary[i,1])["tickets"], cex = 0.8,
+#       legend= c(filter(genre_summary1,genre_summary1["Genre"]==genre_summary[i,1])["ppltype"])$ppltype,
+#       fill = identity(length(c(filter(genre_summary1,genre_summary1["Genre"]==genre_summary[i,1])["tickets"])$tickets)))
+}
+
+```
+```{r pie with only green}
+for (i in 1:9){
+  percentage<- round(100*filter(genre_summary1,genre_summary1["Genre"]==genre_summary[i,1])["tickets"]/sum(filter(genre_summary1,genre_summary1["Genre"]==genre_summary[i,1])["tickets"]), 1)
+pie(c(filter(genre_summary1,genre_summary1["Genre"]==genre_summary[i,1])["tickets"])$tickets, 
+    labels = paste0(c("Adult ", "Senior Citizen ", "Student ", "Member ", "Child "),c(percentage)$tickets,"%"), 
+    radius = 1, cex = 0.7, 
+    main=genre_summary[i,1],
+    col = c("gray", "gray", "darkgreen", "gray", "darkolivegreen4"))
+    #col = rainbow(length(c(filter(genre_summary1,genre_summary1["Genre"]==genre_summary[i,1])["tickets"])$tickets)))                 #c(filter(genre_summary1,genre_summary1["Genre"]=="Drama")["ppltype"])$ppltype)
+#pie(x, labels = piepercent, main = "City pie chart",col = rainbow(length(x)))
+#legend("topright", filter(genre_summary1,genre_summary1["Genre"]==genre_summary[i,1])["tickets"], cex = 0.8,
+#       legend= c(filter(genre_summary1,genre_summary1["Genre"]==genre_summary[i,1])["ppltype"])$ppltype,
+#       fill = identity(length(c(filter(genre_summary1,genre_summary1["Genre"]==genre_summary[i,1])["tickets"])$tickets)))
+}
+
+```
+
+```{r boxplot}
+#genre vs gross revenue
+movie_filtered[ , 'Gross_Revenue'] <- NA
+for (i in 1:nrow(movie_filtered)){
+  movie_filtered[i,9]=revenue_by_event[which (revenue_by_event$Event==movie_filtered[i,1]),2]
+}
+
+#Finding total gross revenue of each genre
+genre_summary[ , 'Gross_Revenue'] <- NA
+for (i in 1:nrow(genre_summary)){
+  total_rev=0
+  for (j in 1:length(which(movie_filtered$single_genre==genre_summary$Genre[i]))){
+    total_rev=total_rev+movie_filtered$Gross_Revenue[which(movie_filtered$single_genre==genre_summary$Genre[i])[j]]  
+  }
+  genre_summary$Gross_Revenue[i]=total_rev
+}
+
+#side-by-side boxplot
+ggplot(movie_filtered, aes(single_genre, Gross_Revenue)) +  geom_boxplot()
+
+
+```
+
+```{r one-way anova}
+#unbalanced data?
+type_grossrev = lm(Gross_Revenue~single_genre-1, data=movie_filtered)
+summary(type_grossrev)
+```
+
+```{r one-way anova for unbalanced data}
+#unbalanced data-aov model
+aov_model<-aov(Gross_Revenue~single_genre, data=movie_filtered)
+anova(aov_model)
+summary(aov_model)
+#Tukey pairwise comparison
+TukeyHSD(aov_model)
+```
+
+```{r violin plot}
+library("RColorBrewer")
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", 
+               "#F0E442", "#0072B2", "#D55E00", "#CC79A7","#658ba8", "#c9975d")
+violin_plot<-ggplot(data = movie_filtered, aes(x = single_genre, y = Gross_Revenue, fill=single_genre)) +
+  scale_x_discrete(limits = rev(c(genre_summary["Genre"])$Genre))+
+  geom_violin(alpha=.25, color="gray") +
+  geom_jitter(alpha=.5, aes(color=single_genre), position=position_jitter(width=0.3)) +
+  scale_fill_manual(values=cbPalette) + 
+  scale_colour_manual(values=cbPalette) +
+  #scale_fill_brewer(palette="Paired") +
+  #scale_colour_grey() + scale_fill_grey() +
+  coord_flip() +
+  xlab("Genre") + ylab("Gross Revenue") +
+  ggtitle("Gross Revenue by Genre") +
+  theme_minimal() +theme(plot.title = element_text(size=10, face = "bold", hjust = 0.5 ))
+
+violin_plot
+```
+
+
+```{r quarterly ticket sales plot}
+#from ziyuxu3
+Quarter <- c('2016Q3','2016Q4','2017Q1','2017Q2','2017Q3','2017Q4','2018Q1','2018Q2','2018Q3','2018Q4','2019Q1','2019Q2','2019Q3')
+TicketSales <- c(55142.5, 61229.75, 81794.75, 62748.5, 57170.75, 68126.75, 52502.25, 79023, 86908, 54989.25, 54550, 33341.25, 28802.5)
+dfl <- data.frame( Quarter = Quarter, TicketSales = TicketSales)
+ggplot(data = dfl, mapping = aes(x = factor(Quarter), y = TicketSales, group = 1)) + 
+  geom_line(colour="darkgreen",size = 1) + 
+  geom_point(colour="navy") +
+  xlab("Quarter") + ylab("Total Ticket Sales") + 
+  ggtitle("Quarterly Ticket Sales from 2016 to 2019")+
+  theme(axis.title = element_text(size = 12, vjust = 0.5, hjust = 0.5))+
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15))
+
+```
+
+
+```{r peak1}
+#peak1 -2017Q1
+peak1<-ticket_sales %>% filter(`EventDate` >=as.Date("2017-1-1"), `EventDate` <=as.Date("2017-3-31"))
+peak1_movies<-as.data.frame(unique(peak1$EventName))
+colnames(peak1_movies)[1] ="eventname"
+peak1_movies[ , 'genre'] <- NA
+for (i in 1:nrow(peak1_movies)){
+  a<-gsub(" ", "+", peak1_movies[i,1], fixed=TRUE)
+  base_url<-"http://www.omdbapi.com/?t="
+  movie_name<- a
+  key_url<-"&apikey=5906a73a"
+  full_url<-base::paste0(base_url, movie_name, key_url)
+  api_call <- httr::GET(full_url)
+  fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+  if (fetch_api$Response=="False"){
+    fetch_api$Genre="NA"
+  }
+  peak1_movies$genre[i]<-fetch_api$Genre #merge into movie_filtered
+}
+peak1_movies$genre[27]<-"moviefestival"
+peak1_movies[ , 'single_genre'] <- NA
+#genre_list: order from the frequency table generated above
+genre_list<-c("Drama", "Comedy", "Biography", "Documentary", "Romance", "Adventure", "History", "Crime", "Animation", "Horror", "Mystery", "Fantasy", "Thriller", "Sci-Fi", "Action", "Music", "War", "Family", "moviefestival", "Sport", "Musical", "Short")
+while (sum(is.na(peak1_movies$single_genre))!=0) {
+  for (i in 1:length(genre_list)){
+    for (j in 1:nrow(peak1_movies)){
+      if (str_detect(peak1_movies$genre[j], genre_list[i])==TRUE && is.na(peak1_movies$single_genre[j])==TRUE){
+        peak1_movies$single_genre[j]<- genre_list[i]
+      }
+    }
+  }
+}
+
+peak1_genre<-paste(peak1_movies["single_genre"], collapse = ",")
+# Create frequency table
+freq1 <- sort(table(unlist(strsplit(gsub('[[:punct:] ]+',' ',peak1_genre)," "))), decreasing = TRUE)
+freq1
+#results
+#total31
+#Drama22/Documentary4/Horror2/Animation1/Biography1/moviefestival1
+```
+
+
+```{r peak2}
+#peak2 -2018Q3
+peak2<-ticket_sales %>% filter(`EventDate` >=as.Date("2018-7-1"), `EventDate` <=as.Date("2018-9-30"))
+peak2_movies<-as.data.frame(unique(peak2$EventName)) 
+colnames(peak2_movies)[1] ="eventname"
+peak2_movies[ , 'genre'] <- NA
+for (i in 1:nrow(peak2_movies)){
+  a<-gsub(" ", "+", peak2_movies[i,1], fixed=TRUE)
+  base_url<-"http://www.omdbapi.com/?t="
+  movie_name<- a
+  key_url<-"&apikey=5906a73a"
+  full_url<-base::paste0(base_url, movie_name, key_url)
+  api_call <- httr::GET(full_url)
+  fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+  if (fetch_api$Response=="False"){
+    fetch_api$Genre="NA"
+  }
+  peak2_movies$genre[i]<-fetch_api$Genre #merge into movie_filtered
+}
+#27,28 the beatles
+peak2_movies$genre[27]<-"Documentary, Music"
+peak2_movies$genre[28]<-"Documentary, Music"
+
+peak2_movies[ , 'single_genre'] <- NA
+#genre_list: order from the frequency table generated above
+genre_list<-c("Drama", "Comedy", "Biography", "Documentary", "Romance", "Adventure", "History", "Crime", "Animation", "Horror", "Mystery", "Fantasy", "Thriller", "Sci-Fi", "Action", "Music", "War", "Family", "moviefestival", "Sport", "Musical", "Short")
+while (sum(is.na(peak2_movies$single_genre))!=1) {
+  for (i in 1:length(genre_list)){
+    for (j in 1:nrow(peak2_movies)){
+      if (str_detect(peak2_movies$genre[j], genre_list[i])==TRUE && is.na(peak2_movies$single_genre[j])==TRUE){
+        peak2_movies$single_genre[j]<- genre_list[i]
+      }
+    }
+  }
+}
+peak2_movies$genre[15]<-"Western"
+peak2_genre<-paste(peak2_movies["single_genre"], collapse = ",")
+# Create frequency table
+freq2 <- sort(table(unlist(strsplit(gsub('[[:punct:] ]+',' ',peak2_genre)," "))), decreasing = TRUE)
+freq2
+#results
+#total46
+#Drama24/Documentary9/Biography4/Comedy3/Horror2/Adventure1/Animation1Thriller1
+```
+
+```{r dip1}
+#dip1 -2018Q1
+dip1<-ticket_sales %>% filter(`EventDate` >=as.Date("2018-1-1"), `EventDate` <=as.Date("2018-3-31"))
+dip1_movies<-as.data.frame(unique(dip1$EventName)) 
+colnames(dip1_movies)[1] ="eventname"
+dip1_movies[ , 'genre'] <- NA
+for (i in 1:nrow(dip1_movies)){
+  a<-gsub(" ", "+", dip1_movies[i,1], fixed=TRUE)
+  base_url<-"http://www.omdbapi.com/?t="
+  movie_name<- a
+  key_url<-"&apikey=5906a73a"
+  full_url<-base::paste0(base_url, movie_name, key_url)
+  api_call <- httr::GET(full_url)
+  fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+  if (fetch_api$Response=="False"){
+    fetch_api$Genre="NA"
+  }
+  dip1_movies$genre[i]<-fetch_api$Genre #merge into movie_filtered
+}
+#8
+dip1_movies$genre[8]<-"Animation"
+#19
+dip1_movies$genre[19]<-"Crime, Drama"
+#31, 38
+dip1_movies$genre[31]<-"moviefestival"
+dip1_movies$genre[38]<-"moviefestival"
+
+dip1_movies[ , 'single_genre'] <- NA
+#genre_list: order from the frequency table generated above
+genre_list<-c("Drama", "Comedy", "Biography", "Documentary", "Romance", "Adventure", "History", "Crime", "Animation", "Horror", "Mystery", "Fantasy", "Thriller", "Sci-Fi", "Action", "Music", "War", "Family", "moviefestival", "Sport", "Musical", "Short")
+while (sum(is.na(dip1_movies$single_genre))!=0) {
+  for (i in 1:length(genre_list)){
+    for (j in 1:nrow(dip1_movies)){
+      if (str_detect(dip1_movies$genre[j], genre_list[i])==TRUE && is.na(dip1_movies$single_genre[j])==TRUE){
+        dip1_movies$single_genre[j]<- genre_list[i]
+      }
+    }
+  }
+}
+
+dip1_genre<-paste(dip1_movies["single_genre"], collapse = ",")
+# Create frequency table
+freq3 <- sort(table(unlist(strsplit(gsub('[[:punct:] ]+',' ',dip1_genre)," "))), decreasing = TRUE)
+freq3
+#results
+#total42
+#Drama27/Documentary3/Horror1/Comedy3/Adventure3/Sci-Fi2/moviefestival2/Animation1
+
+```
+
+
+
+```{r dip2}
+#dip2 -2019Q3 but the dataset only contains data to 20190831 (2 months instead of 3 months)
+dip2<-ticket_sales %>% filter(`EventDate` >=as.Date("2019-7-1"), `EventDate` <=as.Date("2019-8-31"))
+dip2_movies<-as.data.frame(unique(dip2$EventName)) 
+colnames(dip2_movies)[1] ="eventname"
+dip2_movies[ , 'genre'] <- NA
+for (i in 1:nrow(dip2_movies)){
+  a<-gsub(" ", "+", dip2_movies[i,1], fixed=TRUE)
+  base_url<-"http://www.omdbapi.com/?t="
+  movie_name<- a
+  key_url<-"&apikey=5906a73a"
+  full_url<-base::paste0(base_url, movie_name, key_url)
+  api_call <- httr::GET(full_url)
+  fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+  if (fetch_api$Response=="False"){
+    fetch_api$Genre="NA"
+  }
+  dip2_movies$genre[i]<-fetch_api$Genre #merge into movie_filtered
+}
+
+dip2_movies[ , 'single_genre'] <- NA
+#genre_list: order from the frequency table generated above
+genre_list<-c("Drama", "Comedy", "Biography", "Documentary", "Romance", "Adventure", "History", "Crime", "Animation", "Horror", "Mystery", "Fantasy", "Thriller", "Sci-Fi", "Action", "Music", "War", "Family", "moviefestival", "Sport", "Musical", "Short")
+while (sum(is.na(dip2_movies$single_genre))!=0) {
+  for (i in 1:length(genre_list)){
+    for (j in 1:nrow(dip2_movies)){
+      if (str_detect(dip2_movies$genre[j], genre_list[i])==TRUE && is.na(dip2_movies$single_genre[j])==TRUE){
+        dip2_movies$single_genre[j]<- genre_list[i]
+      }
+    }
+  }
+}
+
+dip2_genre<-paste(dip2_movies["single_genre"], collapse = ",")
+# Create frequency table
+freq4 <- sort(table(unlist(strsplit(gsub('[[:punct:] ]+',' ',dip2_genre)," "))), decreasing = TRUE)
+freq4
+#results
+#total25
+#Drama13/Documentary4/Horror1/Biography2/Comedy4/Adventure1
+
+```
+
+```{r dip3}
+#dip3 -2019Q2 decided to look into Q2 as well
+dip3<-ticket_sales %>% filter(`EventDate` >=as.Date("2019-4-1"), `EventDate` <=as.Date("2019-6-30"))
+dip3_movies<-as.data.frame(unique(dip3$EventName)) 
+colnames(dip3_movies)[1] ="eventname"
+dip3_movies[ , 'genre'] <- NA
+for (i in 1:nrow(dip3_movies)){
+  a<-gsub(" ", "+", dip3_movies[i,1], fixed=TRUE)
+  base_url<-"http://www.omdbapi.com/?t="
+  movie_name<- a
+  key_url<-"&apikey=5906a73a"
+  full_url<-base::paste0(base_url, movie_name, key_url)
+  api_call <- httr::GET(full_url)
+  fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+  if (fetch_api$Response=="False"){
+    fetch_api$Genre="NA"
+  }
+  dip3_movies$genre[i]<-fetch_api$Genre #merge into movie_filtered
+}
+#39,43
+dip3_movies$genre[39]<-"moviefestival"
+dip3_movies$genre[43]<-"moviefestival"
+
+dip3_movies[ , 'single_genre'] <- NA
+#genre_list: order from the frequency table generated above
+genre_list<-c("Drama", "Comedy", "Biography", "Documentary", "Romance", "Adventure", "History", "Crime", "Animation", "Horror", "Mystery", "Fantasy", "Thriller", "Sci-Fi", "Action", "Music", "War", "Family", "moviefestival", "Sport", "Musical", "Short")
+while (sum(is.na(dip3_movies$single_genre))!=0) {
+  for (i in 1:length(genre_list)){
+    for (j in 1:nrow(dip3_movies)){
+      if (str_detect(dip3_movies$genre[j], genre_list[i])==TRUE && is.na(dip3_movies$single_genre[j])==TRUE){
+        dip3_movies$single_genre[j]<- genre_list[i]
+      }
+    }
+  }
+}
+
+dip3_genre<-paste(dip3_movies["single_genre"], collapse = ",")
+# Create frequency table
+freq5 <- sort(table(unlist(strsplit(gsub('[[:punct:] ]+',' ',dip3_genre)," "))), decreasing = TRUE)
+freq5
+#results
+#total50
+#Drama29/Documentary5/Horror2/Biography3/Comedy7/Adventure1/moviefestival2/Crime1
+
+```
+
+```{r 2016 Q3}
+tp1<-ticket_sales %>% filter(`EventDate` >=as.Date("2016-7-1"), `EventDate` <=as.Date("2016-9-30"))
+tp1_movies<-as.data.frame(unique(tp1$EventName)) 
+colnames(tp1_movies)[1] ="eventname"
+tp1_movies[ , 'genre'] <- NA
+for (i in 1:nrow(tp1_movies)){
+  a<-gsub(" ", "+", tp1_movies[i,1], fixed=TRUE)
+  base_url<-"http://www.omdbapi.com/?t="
+  movie_name<- a
+  key_url<-"&apikey=5906a73a"
+  full_url<-base::paste0(base_url, movie_name, key_url)
+  api_call <- httr::GET(full_url)
+  fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+  if (fetch_api$Response=="False"){
+    fetch_api$Genre="NA"
+  }
+  tp1_movies$genre[i]<-fetch_api$Genre #merge into movie_filtered
+}
+#32,33
+tp1_movies$genre[32]<-"Adventure, Children"
+tp1_movies$genre[33]<-"moviefestival"
+
+tp1_movies[ , 'single_genre'] <- NA
+#genre_list: order from the frequency table generated above
+genre_list<-c("Drama", "Comedy", "Biography", "Documentary", "Romance", "Adventure", "History", "Crime", "Animation", "Horror", "Mystery", "Fantasy", "Thriller", "Sci-Fi", "Action", "Music", "War", "Family", "moviefestival", "Sport", "Musical", "Short")
+while (sum(is.na(tp1_movies$single_genre))!=0) {
+  for (i in 1:length(genre_list)){
+    for (j in 1:nrow(tp1_movies)){
+      if (str_detect(tp1_movies$genre[j], genre_list[i])==TRUE && is.na(tp1_movies$single_genre[j])==TRUE){
+        tp1_movies$single_genre[j]<- genre_list[i]
+      }
+    }
+  }
+}
+
+tp1_genre<-paste(tp1_movies["single_genre"], collapse = ",")
+# Create frequency table
+freq10 <- sort(table(unlist(strsplit(gsub('[[:punct:] ]+',' ',tp1_genre)," "))), decreasing = TRUE)
+freq10
+
+#results
+#total 39
+#Drama18/Documentary6/Comedy4/Adventure3/Crime3/Fantasy1/ Sci-Fi1/ Horror1/ moviefestival1/ music1
+```
+
+```{r 2016 Q4}
+tp2<-ticket_sales %>% filter(`EventDate` >=as.Date("2016-10-1"), `EventDate` <=as.Date("2016-12-31"))
+tp2_movies<-as.data.frame(unique(tp2$EventName)) 
+colnames(tp2_movies)[1] ="eventname"
+tp2_movies[ , 'genre'] <- NA
+for (i in 1:nrow(tp2_movies)){
+  a<-gsub(" ", "+", tp2_movies[i,1], fixed=TRUE)
+  base_url<-"http://www.omdbapi.com/?t="
+  movie_name<- a
+  key_url<-"&apikey=5906a73a"
+  full_url<-base::paste0(base_url, movie_name, key_url)
+  api_call <- httr::GET(full_url)
+  fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+  if (fetch_api$Response=="False"){
+    fetch_api$Genre="NA"
+  }
+  tp2_movies$genre[i]<-fetch_api$Genre #merge into movie_filtered
+}
+#13,22, 24, 27
+tp2_movies$genre[13]<-"Drama, Thriller"
+tp2_movies$genre[22]<-"Music"
+tp2_movies$genre[24]<-"moviefestival"
+tp2_movies<-tp2_movies[-c(27),]
+
+tp2_movies[ , 'single_genre'] <- NA
+#genre_list: order from the frequency table generated above
+genre_list<-c("Drama", "Comedy", "Biography", "Documentary", "Romance", "Adventure", "History", "Crime", "Animation", "Horror", "Mystery", "Fantasy", "Thriller", "Sci-Fi", "Action", "Music", "War", "Family", "moviefestival", "Sport", "Musical", "Short")
+while (sum(is.na(tp2_movies$single_genre))!=0) {
+  for (i in 1:length(genre_list)){
+    for (j in 1:nrow(tp2_movies)){
+      if (str_detect(tp2_movies$genre[j], genre_list[i])==TRUE && is.na(tp2_movies$single_genre[j])==TRUE){
+        tp2_movies$single_genre[j]<- genre_list[i]
+      }
+    }
+  }
+}
+
+tp2_genre<-paste(tp2_movies["single_genre"], collapse = ",")
+# Create frequency table
+freq11 <- sort(table(unlist(strsplit(gsub('[[:punct:] ]+',' ',tp2_genre)," "))), decreasing = TRUE)
+freq11
+
+#results
+#total 29
+#Drama20/Documentary4/Comedy1/Adventure1/ Horror1/ moviefestival1/ music1
+```
+```{r 2017 Q2}
+tp3<-ticket_sales %>% filter(`EventDate` >=as.Date("2017-4-1"), `EventDate` <=as.Date("2017-6-30"))
+tp3_movies<-as.data.frame(unique(tp3$EventName)) 
+colnames(tp3_movies)[1] ="eventname"
+tp3_movies[ , 'genre'] <- NA
+for (i in 1:nrow(tp3_movies)){
+  a<-gsub(" ", "+", tp3_movies[i,1], fixed=TRUE)
+  base_url<-"http://www.omdbapi.com/?t="
+  movie_name<- a
+  key_url<-"&apikey=5906a73a"
+  full_url<-base::paste0(base_url, movie_name, key_url)
+  api_call <- httr::GET(full_url)
+  fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+  if (fetch_api$Response=="False"){
+    fetch_api$Genre="NA"
+  }
+  tp3_movies$genre[i]<-fetch_api$Genre #merge into movie_filtered
+}
+# 27,34
+tp3_movies$genre[27]<-"History, Music"
+tp3_movies$genre[34]<-"Animation"
+
+
+tp3_movies[ , 'single_genre'] <- NA
+#genre_list: order from the frequency table generated above
+genre_list<-c("Drama", "Comedy", "Biography", "Documentary", "Romance", "Adventure", "History", "Crime", "Animation", "Horror", "Mystery", "Fantasy", "Thriller", "Sci-Fi", "Action", "Music", "War", "Family", "moviefestival", "Sport", "Musical", "Short")
+while (sum(is.na(tp3_movies$single_genre))!=0) {
+  for (i in 1:length(genre_list)){
+    for (j in 1:nrow(tp3_movies)){
+      if (str_detect(tp3_movies$genre[j], genre_list[i])==TRUE && is.na(tp3_movies$single_genre[j])==TRUE){
+        tp3_movies$single_genre[j]<- genre_list[i]
+      }
+    }
+  }
+}
+
+tp3_genre<-paste(tp3_movies["single_genre"], collapse = ",")
+# Create frequency table
+freq12 <- sort(table(unlist(strsplit(gsub('[[:punct:] ]+',' ',tp3_genre)," "))), decreasing = TRUE)
+freq12
+
+#results
+#total 40
+#Drama25/Documentary5/Comedy1/Adventure3/ Biography3/ Animation1/ History1/ Horror1
+```
+
+```{r 2017 Q3}
+tp4<-ticket_sales %>% filter(`EventDate` >=as.Date("2017-7-1"), `EventDate` <=as.Date("2017-9-30"))
+tp4_movies<-as.data.frame(unique(tp4$EventName)) 
+colnames(tp4_movies)[1] ="eventname"
+tp4_movies[ , 'genre'] <- NA
+for (i in 1:nrow(tp4_movies)){
+  a<-gsub(" ", "+", tp4_movies[i,1], fixed=TRUE)
+  base_url<-"http://www.omdbapi.com/?t="
+  movie_name<- a
+  key_url<-"&apikey=5906a73a"
+  full_url<-base::paste0(base_url, movie_name, key_url)
+  api_call <- httr::GET(full_url)
+  fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+  if (fetch_api$Response=="False"){
+    fetch_api$Genre="NA"
+  }
+  tp4_movies$genre[i]<-fetch_api$Genre #merge into movie_filtered
+}
+# 34,53
+tp4_movies<-tp4_movies[-c(34,53),]
+
+
+
+tp4_movies[ , 'single_genre'] <- NA
+#genre_list: order from the frequency table generated above
+genre_list<-c("Drama", "Comedy", "Biography", "Documentary", "Romance", "Adventure", "History", "Crime", "Animation", "Horror", "Mystery", "Fantasy", "Thriller", "Sci-Fi", "Action", "Music", "War", "Family", "moviefestival", "Sport", "Musical", "Short")
+while (sum(is.na(tp4_movies$single_genre))!=0) {
+  for (i in 1:length(genre_list)){
+    for (j in 1:nrow(tp4_movies)){
+      if (str_detect(tp4_movies$genre[j], genre_list[i])==TRUE && is.na(tp4_movies$single_genre[j])==TRUE){
+        tp4_movies$single_genre[j]<- genre_list[i]
+      }
+    }
+  }
+}
+
+tp4_genre<-paste(tp4_movies["single_genre"], collapse = ",")
+# Create frequency table
+freq13 <- sort(table(unlist(strsplit(gsub('[[:punct:] ]+',' ',tp4_genre)," "))), decreasing = TRUE)
+freq13
+
+#results
+#total 55
+#Drama32/Documentary6/Comedy8/Adventure4/ Biography2/Horror3
+```
+
+```{r 2017 Q4}
+tp5<-ticket_sales %>% filter(`EventDate` >=as.Date("2017-10-1"), `EventDate` <=as.Date("2017-12-31"))
+tp5_movies<-as.data.frame(unique(tp5$EventName)) 
+colnames(tp5_movies)[1] ="eventname"
+tp5_movies[ , 'genre'] <- NA
+for (i in 1:nrow(tp5_movies)){
+  a<-gsub(" ", "+", tp5_movies[i,1], fixed=TRUE)
+  base_url<-"http://www.omdbapi.com/?t="
+  movie_name<- a
+  key_url<-"&apikey=5906a73a"
+  full_url<-base::paste0(base_url, movie_name, key_url)
+  api_call <- httr::GET(full_url)
+  fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+  if (fetch_api$Response=="False"){
+    fetch_api$Genre="NA"
+  }
+  tp5_movies$genre[i]<-fetch_api$Genre #merge into movie_filtered
+}
+# 11,34
+tp5_movies$genre[11]<-"Drama, History"
+tp5_movies$genre[19]<-"Documentary"
+tp5_movies$genre[21]<-"moviefestival"
+tp5_movies$genre[23]<-"Drama"
+tp5_movies$genre[27]<-"Music"
+tp5_movies$genre[29]<-"Horror, moviefestival"
+tp5_movies$genre[30]<-"Horror"
+tp5_movies$genre[32]<-"Horror"
+tp5_movies<-tp5_movies[-c(35),]
+
+tp5_movies[ , 'single_genre'] <- NA
+#genre_list: order from the frequency table generated above
+genre_list<-c("Drama", "Comedy", "Biography", "Documentary", "Romance", "Adventure", "History", "Crime", "Animation", "Horror", "Mystery", "Fantasy", "Thriller", "Sci-Fi", "Action", "Music", "War", "Family", "moviefestival", "Sport", "Musical", "Short")
+while (sum(is.na(tp5_movies$single_genre))!=0) {
+  for (i in 1:length(genre_list)){
+    for (j in 1:nrow(tp5_movies)){
+      if (str_detect(tp5_movies$genre[j], genre_list[i])==TRUE && is.na(tp5_movies$single_genre[j])==TRUE){
+        tp5_movies$single_genre[j]<- genre_list[i]
+      }
+    }
+  }
+}
+
+tp5_genre<-paste(tp5_movies["single_genre"], collapse = ",")
+# Create frequency table
+freq14 <- sort(table(unlist(strsplit(gsub('[[:punct:] ]+',' ',tp5_genre)," "))), decreasing = TRUE)
+freq14
+
+#results
+#total 36
+#Drama16/Documentary6/Comedy4/Adventure1/ moviefestival1/ Horror6/ music2
+```
+
+```{r 2018 Q2}
+tp6<-ticket_sales %>% filter(`EventDate` >=as.Date("2018-4-1"), `EventDate` <=as.Date("2018-6-30"))
+tp6_movies<-as.data.frame(unique(tp6$EventName)) 
+colnames(tp6_movies)[1] ="eventname"
+tp6_movies[ , 'genre'] <- NA
+for (i in 1:nrow(tp6_movies)){
+  a<-gsub(" ", "+", tp6_movies[i,1], fixed=TRUE)
+  base_url<-"http://www.omdbapi.com/?t="
+  movie_name<- a
+  key_url<-"&apikey=5906a73a"
+  full_url<-base::paste0(base_url, movie_name, key_url)
+  api_call <- httr::GET(full_url)
+  fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+  if (fetch_api$Response=="False"){
+    fetch_api$Genre="NA"
+  }
+  tp6_movies$genre[i]<-fetch_api$Genre #merge into movie_filtered
+}
+# 11,34
+tp6_movies$genre[6]<-"Documentary"
+tp6_movies$genre[28]<-"Drama"
+tp6_movies$genre[32]<-"Documentary"
+tp6_movies$genre[33]<-"Horror"
+
+
+tp6_movies[ , 'single_genre'] <- NA
+#genre_list: order from the frequency table generated above
+genre_list<-c("Drama", "Comedy", "Biography", "Documentary", "Romance", "Adventure", "History", "Crime", "Animation", "Horror", "Mystery", "Fantasy", "Thriller", "Sci-Fi", "Action", "Music", "War", "Family", "moviefestival", "Sport", "Musical", "Short")
+while (sum(is.na(tp6_movies$single_genre))!=0) {
+  for (i in 1:length(genre_list)){
+    for (j in 1:nrow(tp6_movies)){
+      if (str_detect(tp6_movies$genre[j], genre_list[i])==TRUE && is.na(tp6_movies$single_genre[j])==TRUE){
+        tp6_movies$single_genre[j]<- genre_list[i]
+      }
+    }
+  }
+}
+
+tp6_genre<-paste(tp6_movies["single_genre"], collapse = ",")
+# Create frequency table
+freq15 <- sort(table(unlist(strsplit(gsub('[[:punct:] ]+',' ',tp6_genre)," "))), decreasing = TRUE)
+freq15
+
+#results
+#total 40
+#Drama23/Documentary4/Comedy4/Adventure2/ Animation1/ Horror2/ Biography4
+```
+
+```{r 2018 Q4}
+tp7<-ticket_sales %>% filter(`EventDate` >=as.Date("2018-10-1"), `EventDate` <=as.Date("2018-12-31"))
+tp7_movies<-as.data.frame(unique(tp7$EventName)) 
+colnames(tp7_movies)[1] ="eventname"
+tp7_movies[ , 'genre'] <- NA
+for (i in 1:nrow(tp7_movies)){
+  a<-gsub(" ", "+", tp7_movies[i,1], fixed=TRUE)
+  base_url<-"http://www.omdbapi.com/?t="
+  movie_name<- a
+  key_url<-"&apikey=5906a73a"
+  full_url<-base::paste0(base_url, movie_name, key_url)
+  api_call <- httr::GET(full_url)
+  fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+  if (fetch_api$Response=="False"){
+    fetch_api$Genre="NA"
+  }
+  tp7_movies$genre[i]<-fetch_api$Genre #merge into movie_filtered
+}
+# 11,34
+tp7_movies$genre[17]<-"Horror"
+tp7_movies$genre[26]<-"moviefestival"
+tp7_movies$genre[29]<-"Documentary"
+tp7_movies$genre[33]<-"Documentary"
+tp7_movies$genre[38]<-"Horror, moviefestival"
+tp7_movies$genre[44]<-"Horror, Sci-Fi"
+tp7_movies$genre[47]<-"Horror, moviefestival"
+tp7_movies<-tp7_movies[-c(32),]
+
+tp7_movies[ , 'single_genre'] <- NA
+#genre_list: order from the frequency table generated above
+genre_list<-c("Drama", "Comedy", "Biography", "Documentary", "Romance", "Adventure", "History", "Crime", "Animation", "Horror", "Mystery", "Fantasy", "Thriller", "Sci-Fi", "Action", "Music", "War", "Family", "moviefestival", "Sport", "Musical", "Short")
+while (sum(is.na(tp7_movies$single_genre))!=0) {
+  for (i in 1:length(genre_list)){
+    for (j in 1:nrow(tp7_movies)){
+      if (str_detect(tp7_movies$genre[j], genre_list[i])==TRUE && is.na(tp7_movies$single_genre[j])==TRUE){
+        tp7_movies$single_genre[j]<- genre_list[i]
+      }
+    }
+  }
+}
+
+tp7_genre<-paste(tp7_movies["single_genre"], collapse = ",")
+# Create frequency table
+freq16 <- sort(table(unlist(strsplit(gsub('[[:punct:] ]+',' ',tp7_genre)," "))), decreasing = TRUE)
+freq16
+
+#results
+#total 46
+#Drama21/Documentary8/Comedy3/Biography1/ moviefestival1/ Horror12
+```
+
+```{r 2019 Q1}
+tp8<-ticket_sales %>% filter(`EventDate` >=as.Date("2019-1-1"), `EventDate` <=as.Date("2019-3-31"))
+tp8_movies<-as.data.frame(unique(tp8$EventName)) 
+colnames(tp8_movies)[1] ="eventname"
+tp8_movies[ , 'genre'] <- NA
+for (i in 1:nrow(tp8_movies)){
+  a<-gsub(" ", "+", tp8_movies[i,1], fixed=TRUE)
+  base_url<-"http://www.omdbapi.com/?t="
+  movie_name<- a
+  key_url<-"&apikey=5906a73a"
+  full_url<-base::paste0(base_url, movie_name, key_url)
+  api_call <- httr::GET(full_url)
+  fetch_api <- jsonlite::fromJSON(base::rawToChar(api_call$content))
+  if (fetch_api$Response=="False"){
+    fetch_api$Genre="NA"
+  }
+  tp8_movies$genre[i]<-fetch_api$Genre #merge into movie_filtered
+}
+# 11,34
+tp8_movies$genre[26]<-"Horror"
+tp8_movies$genre[28]<-"moviefestival"
+tp8_movies$genre[32]<-"Action"
+tp8_movies$genre[40]<-"Documentary"
+tp8_movies$genre[42]<-"moviefestival"
+tp8_movies$genre[45]<-"Documentary"
+tp8_movies$genre[50]<-"Drama"
+tp8_movies<-tp8_movies[-c(39, 46),]
+
+tp8_movies[ , 'single_genre'] <- NA
+#genre_list: order from the frequency table generated above
+genre_list<-c("Drama", "Comedy", "Biography", "Documentary", "Romance", "Adventure", "History", "Crime", "Animation", "Horror", "Mystery", "Fantasy", "Thriller", "Sci-Fi", "Action", "Music", "War", "Family", "moviefestival", "Sport", "Musical", "Short")
+while (sum(is.na(tp8_movies$single_genre))!=0) {
+  for (i in 1:length(genre_list)){
+    for (j in 1:nrow(tp8_movies)){
+      if (str_detect(tp8_movies$genre[j], genre_list[i])==TRUE && is.na(tp8_movies$single_genre[j])==TRUE){
+        tp8_movies$single_genre[j]<- genre_list[i]
+      }
+    }
+  }
+}
+
+tp8_genre<-paste(tp8_movies["single_genre"], collapse = ",")
+# Create frequency table
+freq17 <- sort(table(unlist(strsplit(gsub('[[:punct:] ]+',' ',tp8_genre)," "))), decreasing = TRUE)
+freq17
+
+#results
+#total 50
+#Drama29/Documentary7/Comedy3/Biography3/ moviefestival3/ Horror2/ Crime2/Action1
+```
+
+
+```{r prepare dataframe}
+Drama <- c(18, 20, 22, 25, 32, 16, 27, 23, 24, 21, 29, 29)
+Comedy <- c(4, 1, 0, 1, 8, 4, 3, 4, 3, 3, 3, 7)
+Biography<- c(0, 0, 1, 3, 2, 0, 0, 4, 4, 1, 3, 3)
+Documentary<- c(6, 4, 4, 5, 6, 6, 3, 4, 9, 8, 7, 5)
+Adventure<- c(3, 1, 0, 3, 4, 1, 3, 2, 1, 0, 0, 1)
+History<- c(0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0)
+Crime<- c(3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1)
+Animation<- c(0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0)
+Horror<- c(1, 1, 2, 1, 3, 6, 1, 2, 2, 12, 2, 2)
+SciFi <-c(1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0)
+Action <-c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0)
+Music <-c(1, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0)
+moviefestival <-c(1, 1, 1, 0, 0, 1, 2, 0, 0, 1, 3, 2)
+Thriller <-c(0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0)
+Fantasy<-c(1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+Ticketsales <-c(55142.5, 61229.75, 81794.75, 62748.5, 57170.75, 68126.75, 52502.25, 79023, 86908, 54989.25, 54550, 33341.25)
+
+genre_time <- data.frame(Drama, Comedy, Biography, Documentary, Adventure, History, Crime, Animation, Horror, SciFi, Action, Music, moviefestival, Thriller, Fantasy, Ticketsales)
+
+
+print (genre_time)
+```
+
+```{r correlation matrix}
+cor(genre_time)
+```
+
+```{r mlr full model}
+genre_model <- lm(Ticketsales ~ ., data=genre_time)  # with all the independent variables in the dataframe
+summary(genre_model)
+
+```
+
+```{r pca}
+library(pls)
+genre.pcr<-pcr(Ticketsales ~ ., scale=FALSE, data=genre_time,ncomp=11)
+summary(genre.pcr)
+```
+First four components for over 90% of the total variation of the data.
+```{r scree plot}
+#scree plot
+plot(prcomp(as.matrix(genre_time[,-c(2,16)]))$sdev[1:15],
+     ylab="PCAs Std Dev", xlab="PCA number", type="l")
+```
+
+```{r mlr reduced model}
+#drama, comedy, biography, documentary
+genre_time2<-genre_time[c(1:4, 16)]
+genre_model2 <- lm(Ticketsales ~ ., data=genre_time2)  # with all the independent variables in the dataframe
+summary(genre_model2)
+```
+
+
+```{r install packages for Diagnostics}
+#multi-correlation
+# VIF
+install.packages("caTools")    # For Linear regression 
+install.packages('car')        # To check multicollinearity 
+install.packages("quantmod")
+install.packages("MASS")
+install.packages("corrplot")   # plot correlation plot
+
+library(caTools)
+library(car)
+library(quantmod)
+library(MASS)
+library(corrplot)
+```
+
+
+```{r diagnostics}
+#correlation plot
+cor(genre_time[c(1:4)])
+library(psych)
+corPlot(genre_time[c(1:4)], scale=FALSE, gr=colorRampPalette(c("#6bcfa2", "white", "#218558")) , cex = 1.2)
+
+#collinearity-VIF
+vif(genre_model2)
+vif_values <- vif(genre_model2)           #create vector of VIF values
+barplot(vif_values,ylim=c(0,5.5), main = "VIF Values", horiz = FALSE, col = "#218558") #create horizontal bar chart to display each VIF value
+abline(h = 5, lwd = 3, lty = 2)  
+
+#shapiro-wilk normality test
+library(dplyr)
+shapiro.test(genre_model2$residuals)
+```
+
+
+
+
