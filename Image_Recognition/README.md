@@ -1,0 +1,1 @@
+This is an image recognition project done in STAT542 using The Olivetti faces dataset. PCA, Logistic Regression, Linear Discriminant Analysis (LDA) and Convolutional Neural Network (CNN) are used in this project. This is a joint work with my classmates Tomy Fan, Alice Mei, Joseph Liao and Supanut Wanchai.
