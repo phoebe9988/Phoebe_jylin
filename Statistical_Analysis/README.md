@@ -1,1 +1,1 @@
-These are some projects I did during my coursework studying master's in statistics, focusing on statistical data analysis. These projects are joint work with my classmates Tomy Fan, Supanut Wanchai and Itbissam Dalvi.
+These are some projects I did during my STAT 425 coursework studying master's in statistics, focusing on statistical data analysis. These projects are joint work with my classmates Tomy Fan, Supanut Wanchai and Itbissam Dalvi.
