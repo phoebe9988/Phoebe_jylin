@@ -1,1 +1,1 @@
-
+This is a project done in STAT440- Statistical Data Management course, along with my teammate Tomy Fan. We made a dashboard for tracking Covid Cases across the states of the United States, using data from an API and including numbers such as people in hospitalization, people in ICU, people on ventilator, and death cases.
